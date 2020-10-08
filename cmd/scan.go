@@ -1,17 +1,23 @@
 /*
-Copyright © 2020 NAME HERE <EMAIL ADDRESS>
+Copyright © 2020 Aaron Tatum <aarontatum13@gmail.com>
 
-Licensed under the Apache License, Version 2.0 (the "License");
-you may not use this file except in compliance with the License.
-You may obtain a copy of the License at
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
 
-    http://www.apache.org/licenses/LICENSE-2.0
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
 
-Unless required by applicable law or agreed to in writing, software
-distributed under the License is distributed on an "AS IS" BASIS,
-WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-See the License for the specific language governing permissions and
-limitations under the License.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
 */
 package cmd
 
@@ -78,12 +84,15 @@ var scanCmd = &cobra.Command{
 		fmt.Printf("Starting scan...\n\n")
 		result, err := Scan(opts.Host, opts.Port, opts.Timeout)
 		if err != nil {
+			if e, ok := err.(net.Error); ok && e.Timeout() {
+				log.Fatalf("Warning! connection timeout on read, instance at: %s:%s is most likely not a MySQL instance or the timeout period was too short to complete the handshake\n", opts.Host, opts.Port)
+			}
 			log.Fatal(err)
 		}
 
-		table(result)
-
-		// fmt.Println(result)
+		if err := table(result); err != nil {
+			log.Fatalf("Error outputting table format: %v\n", err)
+		}
 	},
 }
 
@@ -91,7 +100,7 @@ func init() {
 	rootCmd.AddCommand(scanCmd)
 	scanCmd.Flags().String("port", "", "Port to scan")
 	scanCmd.Flags().String("host", "", "Host to scan")
-	scanCmd.Flags().IntP("timeout", "t", 500, "Timeout for dial and connection reads (default: 500ms)")
+	scanCmd.Flags().IntP("timeout", "t", 500, "Timeout for dial and connection reads in milliseconds")
 }
 
 // Scan scans the specified host and port testing if the port is open and if its running mysql
@@ -111,7 +120,6 @@ func Scan(host string, port string, timeout time.Duration) (*MySQLInfo, error) {
 	lenBuf := make([]byte, 4)
 	_, err = conn.Read(lenBuf)
 	if err != nil {
-		// if err == io.
 		return nil, err
 	}
 
@@ -184,7 +192,7 @@ func parseFlags(cmd *cobra.Command) (*options, error) {
 		return nil, errNoPort
 	}
 	if port != "3306" {
-		fmt.Printf("Warning! Port: %s is not typically used by MySQL\n", port)
+		fmt.Printf("Warning! Port: %s is not typically used by MySQL\n\n", port)
 	}
 	timeout, err := cmd.Flags().GetInt("timeout")
 	if err != nil {
