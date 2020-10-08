@@ -64,7 +64,6 @@ var (
 	errNoPort          = errors.New("missing input value port (--port)")
 	errZeroTimeout     = errors.New("timeout must be a non-zero number")
 	errToManyConn      = errors.New("too many connections")
-	errClosedPort      = errors.New("port is closed")
 	errEarlyEOF        = errors.New("received EOF before receiving all promised data")
 	errUnknownProtocol = errors.New("unknown protocol version expecting version 9 or 10")
 )
@@ -115,7 +114,10 @@ func Scan(host string, port string, timeout time.Duration) (*MySQLInfo, error) {
 		return nil, errs.Wrap(err, "port: "+port+" is closed")
 	}
 	fmt.Printf("Port: %s is open\n\n", port)
-	conn.SetReadDeadline(time.Now().Add(timeout))
+
+	if err = conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+		return nil, err
+	}
 
 	lenBuf := make([]byte, 4)
 	_, err = conn.Read(lenBuf)
